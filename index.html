@@ -1,1 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Solucionador de desigualdades</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+  label, select, input { display: block; margin: 0.5rem 0; }
+  button { margin-top: 1rem; padding: 0.5rem 1rem; }
+  #resultado { margin-top: 1rem; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h1>Solucionador de desigualdades lineales y cuadráticas</h1>
+  
+  <form id="formDesigualdad">
+    <label for="tipo">Tipo de desigualdad:</label>
+    <select id="tipo" name="tipo">
+      <option value="lineal">Lineal (ax + b &lt; 0)</option>
+      <option value="cuadratica">Cuadrática (ax² + bx + c &lt; 0)</option>
+    </select>
 
+    <div id="coefLineal">
+      <label for="aLineal">a:</label>
+      <input type="number" id="aLineal" name="aLineal" step="any" required />
+      <label for="bLineal">b:</label>
+      <input type="number" id="bLineal" name="bLineal" step="any" required />
+      <label for="signoLineal">Signo:</label>
+      <select id="signoLineal" name="signoLineal">
+        <option value="<">&lt;</option>
+        <option value="<=">&le;</option>
+        <option value=">">&gt;</option>
+        <option value=">=">&ge;</option>
+      </select>
+    </div>
+
+    <div id="coefCuadratica" style="display:none;">
+      <label for="aCuad">a:</label>
+      <input type="number" id="aCuad" name="aCuad" step="any" />
+      <label for="bCuad">b:</label>
+      <input type="number" id="bCuad" name="bCuad" step="any" />
+      <label for="cCuad">c:</label>
+      <input type="number" id="cCuad" name="cCuad" step="any" />
+      <label for="signoCuad">Signo:</label>
+      <select id="signoCuad" name="signoCuad">
+        <option value="<">&lt;</option>
+        <option value="<=">&le;</option>
+        <option value=">">&gt;</option>
+        <option value=">=">&ge;</option>
+      </select>
+    </div>
+
+    <button type="submit">Calcular solución</button>
+  </form>
+
+  <div id="resultado"></div>
+
+  <script>
+    const tipoSelect = document.getElementById('tipo');
+    const coefLineal = document.getElementById('coefLineal');
+    const coefCuadratica = document.getElementById('coefCuadratica');
+    const resultado = document.getElementById('resultado');
+
+    tipoSelect.addEventListener('change', () => {
+      if (tipoSelect.value === 'lineal') {
+        coefLineal.style.display = 'block';
+        coefCuadratica.style.display = 'none';
+
+        // Hacer requeridos solo los inputs lineales
+        document.getElementById('aLineal').required = true;
+        document.getElementById('bLineal').required = true;
+        document.getElementById('aCuad').required = false;
+        document.getElementById('bCuad').required = false;
+        document.getElementById('cCuad').required = false;
+
+      } else {
+        coefLineal.style.display = 'none';
+        coefCuadratica.style.display = 'block';
+
+        // Hacer requeridos solo los inputs cuadráticos
+        document.getElementById('aLineal').required = false;
+        document.getElementById('bLineal').required = false;
+        document.getElementById('aCuad').required = true;
+        document.getElementById('bCuad').required = true;
+        document.getElementById('cCuad').required = true;
+      }
+      resultado.textContent = '';
+    });
+
+    document.getElementById('formDesigualdad').addEventListener('submit', e => {
+      e.preventDefault();
+
+      resultado.textContent = '';
+
+      if (tipoSelect.value === 'lineal') {
+        const a = parseFloat(document.getElementById('aLineal').value);
+        const b = parseFloat(document.getElementById('bLineal').value);
+        const signo = document.getElementById('signoLineal').value;
+
+        if (a === 0) {
+          resultado.textContent = 'El coeficiente "a" no puede ser cero en una desigualdad lineal.';
+          return;
+        }
+
+        // Resolver ax + b < 0  (o el signo que corresponda)
+        // x < -b/a  (invertir signo si a < 0)
+
+        let xSolucion = -b / a;
+        let desigualdad = '';
+
+        // Según el signo y el signo de a, invertir desigualdad si es necesario
+        // Vamos a usar <, <=, >, >=
+
+        // Para que sea más sencillo, invertimos desigualdad si a<0 y cambiamos el signo:
+
+        // Función para invertir signo:
+        function invertirSigno(s) {
+          switch(s) {
+            case '<': return '>';
+            case '<=': return '>=';
+            case '>': return '<';
+            case '>=': return '<=';
+          }
+        }
+
+        let signoReal = signo;
+        if (a < 0) {
+          signoReal = invertirSigno(signo);
+          xSolucion = -b / a;
+        }
+
+        // Mostrar resultado
+        desigualdad = `x ${signoReal} ${xSolucion.toFixed(4)}`;
+        resultado.textContent = `Solución: ${desigualdad}`;
+
+      } else {
+        // Cuadrática: ax² + bx + c < 0 (o otro signo)
+        const a = parseFloat(document.getElementById('aCuad').value);
+        const b = parseFloat(document.getElementById('bCuad').value);
+        const c = parseFloat(document.getElementById('cCuad').value);
+        const signo = document.getElementById('signoCuad').value;
+
+        if (a === 0) {
+          resultado.textContent = 'El coeficiente "a" no puede ser cero en una desigualdad cuadrática.';
+          return;
+        }
+
+        // Calculamos el discriminante
+        const d = b*b - 4*a*c;
+
+        function intervalo(x1, x2, openLeft, openRight) {
+          return `${openLeft ? '(' : '['}${x1}, ${x2}${openRight ? ')' : ']'}`;
+        }
+
+        let solucion = '';
+
+        // Caso discriminante
+        if (d < 0) {
+          // No hay raíces reales, la parábola está siempre por encima o por debajo de x
+          // Si a > 0, parabola hacia arriba, siempre > 0 o >= 0
+          // Si a < 0, parabola hacia abajo, siempre < 0 o <= 0
+
+          let cumple = false;
+          switch(signo) {
+            case '<': cumple = (a < 0); break;
+            case '<=': cumple = (a < 0); break;
+            case '>': cumple = (a > 0); break;
+            case '>=': cumple = (a > 0); break;
+          }
+
+          if (cumple) {
+            solucion = 'La desigualdad se cumple para todo x ∈ ℝ.';
+          } else {
+            solucion = 'No hay solución real.';
+          }
+
+        } else if (d === 0) {
+          // Raíz única
+          const x0 = -b/(2*a);
+          // La parabola toca el eje x en un punto
+
+          switch(signo) {
+            case '<':
+              // La parabola puede ser > 0 o < 0 alrededor del punto
+              // Si a > 0, solo toca abajo, es >= 0, no < 0
+              solucion = a < 0 ? `x ∈ ℝ \\ {${x0.toFixed(4)}}` : 'No hay solución.';
+              break;
+            case '<=':
+              // Cumple en el punto si es cero
+              solucion = a < 0 ? `x ∈ ℝ` : `x = ${x0.toFixed(4)}`;
+              break;
+            case '>':
+              solucion = a > 0 ? `x ∈ ℝ \\ {${x0.toFixed(4)}}` : 'No hay solución.';
+              break;
+            case '>=':
+              solucion = a > 0 ? `x ∈ ℝ` : `x = ${x0.toFixed(4)}`;
+              break;
+          }
+
+        } else {
+          // Dos raíces reales
+          const x1 = (-b - Math.sqrt(d)) / (2*a);
+          const x2 = (-b + Math.sqrt(d)) / (2*a);
+          let menor = Math.min(x1, x2);
+          let mayor = Math.max(x1, x2);
+
+          switch(signo) {
+            case '<':
+              if (a > 0) {
+                solucion = `x ∈ (${menor.toFixed(4)}, ${mayor.toFixed(4)})`;
+              } else {
+                solucion = `x ∈ (-∞, ${menor.toFixed(4)}) ∪ (${mayor.toFixed(4)}, +∞)`;
+              }
+              break;
+            case '<=':
+              if (a > 0) {
+                solucion = `x ∈ [${menor.toFixed(4)}, ${mayor.toFixed(4)}]`;
+              } else {
+                solucion = `x ∈ (-∞, ${menor.toFixed(4)}] ∪ [${mayor.toFixed(4)}, +∞)`;
+              }
+              break;
+            case '>':
+              if (a > 0) {
+                solucion = `x ∈ (-∞, ${menor.toFixed(4)}) ∪ (${mayor.toFixed(4)}, +∞)`;
+              } else {
+                solucion = `x ∈ (${menor.toFixed(4)}, ${mayor.toFixed(4)})`;
+              }
+              break;
+            case '>=':
+              if (a > 0) {
+                solucion = `x ∈ (-∞, ${menor.toFixed(4)}] ∪ [${mayor.toFixed(4)}, +∞)`;
+              } else {
+                solucion = `x ∈ [${menor.toFixed(4)}, ${mayor.toFixed(4)}]`;
+              }
+              break;
+          }
+        }
+
+        resultado.textContent = `Solución: ${solucion}`;
+      }
+    });
+  </script>
+</body>
+</html>
