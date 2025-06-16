@@ -243,3 +243,222 @@
   </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gráfica de desigualdades</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { max-width: 700px; margin: 2rem auto; font-family: Arial, sans-serif; }
+  label, select, input, button { margin: 0.5rem 0; display: block; }
+  canvas { background: #f9f9f9; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h1>Graficador de desigualdades lineales y cuadráticas</h1>
+
+<form id="formGrafica">
+  <label for="tipo">Tipo de función:</label>
+  <select id="tipo" name="tipo">
+    <option value="lineal">Lineal (ax + b)</option>
+    <option value="cuadratica">Cuadrática (ax² + bx + c)</option>
+  </select>
+
+  <div id="coefLineal">
+    <label for="aLineal">a:</label>
+    <input type="number" id="aLineal" step="any" value="1" />
+    <label for="bLineal">b:</label>
+    <input type="number" id="bLineal" step="any" value="0" />
+  </div>
+
+  <div id="coefCuadratica" style="display:none;">
+    <label for="aCuad">a:</label>
+    <input type="number" id="aCuad" step="any" value="1" />
+    <label for="bCuad">b:</label>
+    <input type="number" id="bCuad" step="any" value="0" />
+    <label for="cCuad">c:</label>
+    <input type="number" id="cCuad" step="any" value="0" />
+  </div>
+
+  <label for="signo">Desigualdad:</label>
+  <select id="signo" name="signo">
+    <option value="<">&lt;</option>
+    <option value="<=">&le;</option>
+    <option value=">">&gt;</option>
+    <option value=">=">&ge;</option>
+  </select>
+
+  <button type="submit">Graficar</button>
+</form>
+
+<canvas id="grafica" width="700" height="400"></canvas>
+
+<script>
+  const tipoSelect = document.getElementById('tipo');
+  const coefLineal = document.getElementById('coefLineal');
+  const coefCuadratica = document.getElementById('coefCuadratica');
+  const form = document.getElementById('formGrafica');
+  const ctx = document.getElementById('grafica').getContext('2d');
+  let chart = null;
+
+  tipoSelect.addEventListener('change', () => {
+    if (tipoSelect.value === 'lineal') {
+      coefLineal.style.display = 'block';
+      coefCuadratica.style.display = 'none';
+    } else {
+      coefLineal.style.display = 'none';
+      coefCuadratica.style.display = 'block';
+    }
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+
+    // Limpiar gráfico previo
+    if (chart) chart.destroy();
+
+    let xValues = [];
+    let yValues = [];
+    let shadingData = [];
+
+    // Generar valores x de -10 a 10 con paso 0.1
+    for (let x = -10; x <= 10; x += 0.1) {
+      xValues.push(parseFloat(x.toFixed(2)));
+    }
+
+    // Obtener coeficientes
+    const signo = document.getElementById('signo').value;
+    let f;
+
+    if (tipoSelect.value === 'lineal') {
+      const a = parseFloat(document.getElementById('aLineal').value);
+      const b = parseFloat(document.getElementById('bLineal').value);
+      f = x => a * x + b;
+    } else {
+      const a = parseFloat(document.getElementById('aCuad').value);
+      const b = parseFloat(document.getElementById('bCuad').value);
+      const c = parseFloat(document.getElementById('cCuad').value);
+      f = x => a * x * x + b * x + c;
+    }
+
+    // Calcular y para cada x
+    yValues = xValues.map(f);
+
+    // Crear conjunto de datos para sombrear la región que cumple la desigualdad
+    // La idea es que para cada x, si f(x) cumple la desigualdad, entonces en el área sombreada pondremos y = f(x), sino null
+
+    // Función para evaluar desigualdad f(x) signo 0
+    function cumpleDesigualdad(y) {
+      switch(signo) {
+        case '<': return y < 0;
+        case '<=': return y <= 0;
+        case '>': return y > 0;
+        case '>=': return y >= 0;
+      }
+    }
+
+    shadingData = yValues.map(y => cumpleDesigualdad(y) ? 0 : null); // Sombrearemos debajo del eje x (y=0) donde se cumple
+
+    // Para sombrear la región, vamos a hacer una gráfica de tipo "line" con fill: true, y usaremos 0 como línea base
+
+    // Para que la sombra sea correcta, creamos una línea que sea 0 (eje x) para los valores donde cumple desigualdad, y null donde no.
+
+    let sombra = yValues.map((y, i) => {
+      return cumpleDesigualdad(y) ? y : null;
+    });
+
+    // Pero Chart.js no puede rellenar solo ciertas partes, así que vamos a hacer una forma más simple:
+    // Creamos dos datasets:
+    // 1. La función (curva) normal
+    // 2. Un dataset con la región debajo del eje x para la desigualdad (solo y=0 o y=f(x) si cumple)
+    // Para facilitar, haremos el relleno entre la curva y y=0, sombreando la parte de la desigualdad.
+
+    // Dataset de la función
+    const dataFuncion = {
+      label: 'f(x)',
+      data: yValues,
+      borderColor: 'blue',
+      fill: false,
+      pointRadius: 0,
+      borderWidth: 2,
+      tension: 0.1,
+    };
+
+    // Dataset para sombrear
+    // Aquí crearemos una línea que será la función solo en los puntos donde se cumple la desigualdad, y 0 en los demás para rellenar
+
+    // Alternativa: Crear dataset que va desde y=0 hasta y=f(x) donde cumple la desigualdad
+
+    // Para sombrear correctamente, creamos dataset que rellena desde y=0 a y=f(x) (cuando se cumple)
+    // En los puntos donde no se cumple, ponemos null para que no se dibuje
+
+    const dataSombra = {
+      label: 'Región solución',
+      data: yValues.map((y, i) => cumpleDesigualdad(y) ? y : null),
+      borderColor: 'rgba(0,0,0,0)',
+      backgroundColor: 'rgba(0, 150, 0, 0.3)',
+      fill: 'start',
+      pointRadius: 0,
+      spanGaps: true,  // conecta puntos aunque haya nulls
+    };
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: xValues,
+        datasets: [dataSombra, dataFuncion]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          intersect: false,
+          mode: 'nearest',
+        },
+        plugins: {
+          legend: {
+            display: true,
+          },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: ctx => `x=${ctx.label}, y=${ctx.parsed.y.toFixed(2)}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: {
+              display: true,
+              text: 'x',
+            },
+            min: -10,
+            max: 10,
+            ticks: {
+              stepSize: 2,
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'f(x)',
+            },
+            min: -20,
+            max: 20,
+            ticks: {
+              stepSize: 5,
+            }
+          }
+        }
+      }
+    });
+
+  });
+</script>
+
+</body>
+</html>
